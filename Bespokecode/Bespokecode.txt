@@ -1,0 +1,300 @@
+import io
+import time
+from selenium import webdriver
+import math
+import os
+import numpy as np
+import pandas as pd
+from subprocess import Popen, CREATE_NEW_CONSOLE
+skip="1"
+urls = []
+users = []
+uniUserStatCitation5Year = []
+uniUserStatHindex5Year = []
+uniUserStatI105Year = []
+uniUserStatCitationALL = []
+uniUserStatHindexALL = []
+uniUserStatI10ALL = []
+oldUrl = ""
+newUrl = "123"
+workingDir = ""
+loopv = ""
+
+
+def fillAuthorAndNext(uni, startingUrl, browser):
+    global oldUrl, newUrl, users, workingDir, loopv,skip
+    browser.get(startingUrl)
+    counter = 1
+    ec=0
+    elems = browser.find_elements_by_xpath("//a[@href]")
+    for elem in elems:
+        url = elem.get_attribute("href")
+        if "user=" in url:
+            usr = url.split("user=")[1]
+            if usr in users:
+                continue
+            urls.append(url)
+            users.append(usr)
+    time.sleep(2)
+    if(skip=="1"):
+        return
+    try:
+        while (oldUrl != newUrl):
+            oldUrl = browser.current_url
+            print(oldUrl)
+            src = browser.page_source
+            filename = str(counter) + ".html"
+            location = workingDir + uni
+            savePage(location, src, filename)
+            counter = counter + 1
+            btns = browser.find_elements_by_tag_name('button')
+            for btn in btns:
+                try:
+                    al = btn.get_attribute('aria-label')
+                    if str(al) == "Next":
+                        btn.click()
+                except Exception as e:
+                    print("not correct btn")
+            newUrl = browser.current_url
+            print(newUrl)
+            elems = browser.find_elements_by_xpath("//a[@href]")
+            for elem in elems:
+                url = elem.get_attribute("href")
+                if "user=" in url:
+                    usr = url.split("user=")[1]
+                    urls.append(url)
+                    users.append(usr)
+            time.sleep(2)
+    except Exception as e:
+        print(e)
+
+
+def createUniDir(uni):
+    global workingDir
+    try:
+        os.mkdir(workingDir + uni)
+    except Exception as e:
+        print(e)
+
+
+def createUserDir(uni, user):
+    global workingDir
+    completePath = workingDir + uni + "\\" + user
+    try:
+        os.mkdir(workingDir + uni + "\\" + user)
+        return completePath
+    except Exception as e:
+        print(e)
+        return completePath
+    return completePath
+
+
+def getUserStatFromPage(browser, filepath):
+
+    global uniUserStatCitation5Year, uniUserStatHindex5Year, uniUserStatI105Year, uniUserStatCitationALL, uniUserStatHindexALL, uniUserStatI10ALL
+    filepathNew=filepath.replace("\\","/")
+    filepathNew="file:///"+filepathNew
+    contents = ""
+    try:
+        with open(filepath, encoding="utf8") as f:
+            contents = f.read()
+            print(contents)
+    except Exception as e:
+        print(e)
+        return
+
+
+    statText = ""
+    cAll = "0"
+    c5 = "0"
+    hAll = "0"
+    h5 = "0"
+    iAll = "0"
+    i5 = "0"
+
+    try:
+        browser.get(filepathNew)
+        time.sleep(1)
+        element = browser.find_elements_by_xpath("/html/body/div/div[13]/div[2]/div/div[1]/div/table/tbody")[0]
+        statText = element.get_attribute('innerText')
+        spl = statText.split("\n")
+        splnested = spl[0].split("\t")
+        cAll = splnested[1]
+        c5 = splnested[2]
+        splnested = spl[1].split("\t")
+        hAll = splnested[1]
+        h5 = splnested[2]
+        splnested = spl[2].split("\t")
+        iAll = splnested[1]
+        i5 = splnested[2]
+        uniUserStatCitationALL.append(cAll)
+        uniUserStatCitation5Year.append(c5)
+        uniUserStatHindexALL.append(hAll)
+        uniUserStatHindex5Year.append(h5)
+        uniUserStatI10ALL.append(iAll)
+        uniUserStatI105Year.append(i5)
+    except Exception as e:
+        uniUserStatCitationALL.append(cAll)
+        uniUserStatCitation5Year.append(c5)
+        uniUserStatHindexALL.append(hAll)
+        uniUserStatHindex5Year.append(h5)
+        uniUserStatI10ALL.append(iAll)
+        uniUserStatI105Year.append(i5)
+    print(statText)
+
+
+def moveAutherBrowserDown(browser):
+    error = 0
+    bodyOld = ""
+    bodyNew = "123"
+    while error == 0:
+        try:
+            element = browser.find_elements_by_xpath("/html/body/div/div[13]/div[2]/div/div[4]/form/div[2]/div/button")[
+                0]
+            element.click()
+            time.sleep(2)
+            bodyNew = browser.page_source
+            error = 0
+            if bodyOld != bodyNew:
+                error = 0
+                bodyOld = bodyNew
+            else:
+                error = 1
+        except Exception as e:
+            print(e)
+            error = 1
+    return browser.page_source
+
+
+def savePage(location, data, filename):
+    try:
+        with io.open(location + "\\" + filename, "w", encoding="utf-8") as f:
+            f.write(data)
+    except Exception as e:
+        print(e)
+
+
+def saveAuthorPage(path, source):
+    try:
+        with io.open(path , "w", encoding="utf-8") as f:
+            f.write(source)
+    except Exception as e:
+        print(e)
+
+def checkUserDirectory(filepath):
+    try:
+        with open(filepath, encoding="utf8") as f:
+            contents = f.read()
+            print(contents)
+            return 1
+    except Exception as e:
+        print(e)
+        return 0
+
+def getUserStat(browser):
+    global uniUserStatCitation5Year, uniUserStatHindex5Year, uniUserStatI105Year, uniUserStatCitationALL, uniUserStatHindexALL, uniUserStatI10ALL
+    statText = ""
+    cAll = "0"
+    c5 = "0"
+    hAll = "0"
+    h5 = "0"
+    iAll = "0"
+    i5 = "0"
+    try:
+        element = browser.find_elements_by_xpath("/html/body/div/div[13]/div[2]/div/div[1]/div/table/tbody")[0]
+        statText = element.get_attribute('innerText')
+        spl = statText.split("\n")
+        splnested = spl[0].split("\t")
+        cAll = splnested[1]
+        c5 = splnested[2]
+        splnested = spl[1].split("\t")
+        hAll = splnested[1]
+        h5 = splnested[2]
+        splnested = spl[2].split("\t")
+        iAll = splnested[1]
+        i5 = splnested[2]
+        uniUserStatCitationALL.append(cAll)
+        uniUserStatCitation5Year.append(c5)
+        uniUserStatHindexALL.append(hAll)
+        uniUserStatHindex5Year.append(h5)
+        uniUserStatI10ALL.append(iAll)
+        uniUserStatI105Year.append(i5)
+    except Exception as e:
+        uniUserStatCitationALL.append(cAll)
+        uniUserStatCitation5Year.append(c5)
+        uniUserStatHindexALL.append(hAll)
+        uniUserStatHindex5Year.append(h5)
+        uniUserStatI10ALL.append(iAll)
+        uniUserStatI105Year.append(i5)
+    print(statText)
+
+
+def fillUserData(uni, browser):
+    global users, urls, uniUserStatI10, uniUserStatCitation, uniUserStatI10
+
+    totalUsers = len(users)
+
+    for x in range(totalUsers):
+        browser.get(urls[x])
+        userDirPath = createUserDir(uni, users[x])
+        filePath = userDirPath + "\\CompletePage.html"
+
+        if checkUserDirectory(filePath) == 0:
+            userDirPath = createUserDir(uni, users[x])
+            getUserStat(browser)
+            pageSource = moveAutherBrowserDown(browser)
+            saveAuthorPage(filePath, pageSource)
+        else:
+            getUserStatFromPage(browser, filePath)
+
+def takeUserInput():
+    import tkinter as tk
+    from tkinter import simpledialog
+    ROOT = tk.Tk()
+    ROOT.withdraw()
+    # the input dialog
+    USER_INP = simpledialog.askstring(title="Continue...",
+                                      prompt="Enter any text and press enter:")
+    # check it out
+    print("Hello", USER_INP)
+
+
+def rm_main(*arg, **kwarg):
+    try:
+        global coin, interval, tempfolder, workingDir, loov, skip
+
+        test_dict = kwarg["macros"]
+        res = {key: test_dict[key] for key in test_dict.keys() & {'uniURL'}}
+        loopVal = res.get('uniURL')
+        res = {key: test_dict[key] for key in test_dict.keys() & {'working_dir'}}
+        workingDir = res.get('working_dir')
+        res = {key: test_dict[key] for key in test_dict.keys() & {'skipNext'}}
+        skip = res.get('skipNext')
+
+        #loopVal="roehampton.ac.uk"
+        #workingDir="D:\\noor\\"
+        #skip="1"
+        #loopv = loopVal
+
+        url = "https://scholar.google.com/citations?mauthors=" + loopVal + "&hl=en&view_op=search_authors"
+        browser = webdriver.Chrome()
+
+        createUniDir(loopVal)
+        fillAuthorAndNext(loopVal, url, browser)
+        fillUserData(loopVal, browser)
+
+        npa = np.array([urls, users, uniUserStatCitationALL, uniUserStatCitation5Year, uniUserStatHindexALL,
+                        uniUserStatHindex5Year, uniUserStatI10ALL, uniUserStatI105Year])
+        pdf = pd.DataFrame(npa.T.tolist())
+        pdf.to_excel(workingDir + loopVal + "\\users.xlsx")
+
+        browser.close()
+
+    except Exception as e:
+        print(e)
+
+    return None
+
+
+if __name__ == '__main__':
+    rm_main()
